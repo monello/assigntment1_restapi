@@ -9,3 +9,5 @@ RewriteEngine On    # Turn on the rewriting engine
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME} !-f
 
+# Users
+RewriteRule ^users$ controllers/user.php [L]
