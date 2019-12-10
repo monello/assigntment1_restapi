@@ -33,6 +33,7 @@ switch ($_SERVER['REQUEST_METHOD']) {
 function createUser($db)
 {
     $jsonData = getJsonData();
+
     // TODO Must still handle multiple phone numbers
     try {
         $user = new User(
@@ -40,7 +41,6 @@ function createUser($db)
             null,
             $jsonData->username ?? null,
             $jsonData->email ?? null,
-            null,
             $jsonData->first_name ?? null,
             $jsonData->last_name ?? null,
             $jsonData->date_of_birth ?? null,
@@ -55,22 +55,23 @@ function createUser($db)
     }
 
     // Check that username is unique
-    checkUniqueUsername($db, $user);
+        checkUniqueUsername($db, $user);
 
     // Check that email is unique
     checkUniqueEmail($db, $user);
 
     // Validate and hash password
-    $hashed_password = processPassword($jsonData->password);
+    $password = \User::validatePassword($jsonData->password);
+    $hashed_password = \User::hashPassword($password);
 
     // Object to variables
-    $username = $jsonData->username;
-    $email = $jsonData->email;
-    $first_name = $jsonData->first_name;
-    $last_name = $jsonData->last_name;
-    $date_of_birth = DateTime::createFromFormat('d/m/Y', $jsonData->date_of_birth)->format('Y-m-d');
-    $gender = $jsonData->gender;
-    $country_id = $jsonData->country_id;
+    $username       = $user->getUsername();
+    $email          = $user->getEmail();
+    $first_name     = $user->getFirstName();
+    $last_name      = $user->getLastName();
+    $date_of_birth  = $user->getDateOfBirth()->format('Y-m-d');
+    $gender         = $user->getGender();
+    $country_id     = $user->getCountryId();
 
     try {
         // Insert the User record
@@ -88,7 +89,7 @@ function createUser($db)
     } catch (PDOException $exception) {
         $message = $exception->getMessage();
         error_log("Database Insert-User Query Error: " . $message, 0);
-        errorResponse(["Database Query Error:", $message], 500);
+        errorResponse(["Database Query Error: ", "Insert statement invalid"], 500);
     }
 
     // get row count
@@ -182,21 +183,6 @@ function checkUniqueEmail($db, $user)
         }
     } catch (PDOException $exception) {
         errorResponse(["There was an issue creating a user account"], 500);
-    }
-}
-
-function processPassword($password)
-{
-    if ($password ?? false) {
-        // Check that the password is at least 6 characters long
-        $pwLen = strlen(($password));
-        if ($pwLen < 6 || $pwLen > 100) {
-            errorResponse(["Unable to create User", "Password miust be between 6 and 100 characters"], 400);
-        }
-        // Hash the password
-        return password_hash($password, PASSWORD_DEFAULT);
-    } else {
-        errorResponse(["Unable to create User", "Password not provided"], 400);
     }
 }
 

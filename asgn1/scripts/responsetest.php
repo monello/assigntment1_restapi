@@ -1,7 +1,7 @@
 <?php
 
 require_once('../controllers/db.php');
-require_once('../Models/Response.php');
+require_once('../models/Response.php');
 
 // Test the Database Connection
 try {
