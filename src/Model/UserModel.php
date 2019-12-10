@@ -56,13 +56,13 @@ class UserModel {
     }
 
     // MRL - Done
+    // TODO username, email, password and phone numbers done separately
     public function insert(&$userData)
     {
         $responseObj = new Response();
-
         // Format Date of Birth
         $date_of_birth  = $userData->date_of_birth->format('Y-m-d');
-
+        // Insert record
         $sql = 'INSERT INTO user 
                 (username, email, password, first_name, last_name, date_of_birth, gender, country_id) 
             VALUES 
@@ -83,59 +83,64 @@ class UserModel {
             error_log("Database Insert-User Query Error: " . $e->getMessage(), 0);
             $responseObj->errorResponse(["Database Query Error: ", "Insert statement invalid"], 500);
         }
-
-        // get row count
+        // Get row count
         $rowCount = $query->rowCount();
-
         if($rowCount === 0) {
             $responseObj->errorResponse(["There was an error creating the user account - please try again"], 500);
         }
-
         // Get last user id so we can return the user id in the json
         $userData->id = $this->db->lastInsertId();
         unset($userData->hashed_password);
+        return $rowCount;
     }
 
-    public function update($id, Array $input)
+    // TODO username, email, password and phone numbers done separately
+    public function update(&$userData)
     {
+        $responseObj = new Response();
+        // Format Date of Birth
+        $date_of_birth  = $userData->date_of_birth->format('Y-m-d');
+        // prep the SQL
         $sql = "
             UPDATE user
             SET 
-                firstname = :firstname,
-                lastname  = :lastname,
-                firstparent_id = :firstparent_id,
-                secondparent_id = :secondparent_id
+                first_name = :first_name, 
+                last_name = :last_name, 
+                date_of_birth = :date_of_birth, 
+                gender = :gender, 
+                country_id = :country_id
             WHERE id = :id;
-        "; // TODO implement bind parameters
-
+        ";
         try {
-            $statement = $this->db->prepare($sql);
-            $statement->execute(array(
-                'id' => (int) $id,
-                'firstname' => $input['firstname'],
-                'lastname'  => $input['lastname'],
-                'firstparent_id' => $input['firstparent_id'] ?? null,
-                'secondparent_id' => $input['secondparent_id'] ?? null,
-            ));
-            return $statement->rowCount();
+            $query = $this->db->prepare($sql);
+            $query->bindParam(':id', $userData->id, \PDO::PARAM_STR);
+            $query->bindParam(':first_name', $userData->first_name, \PDO::PARAM_STR);
+            $query->bindParam(':last_name', $userData->last_name, \PDO::PARAM_STR);
+            $query->bindParam(':date_of_birth', $date_of_birth, \PDO::PARAM_STR);
+            $query->bindParam(':gender', $userData->gender, \PDO::PARAM_STR);
+            $query->bindParam(':country_id', $userData->country_id, \PDO::PARAM_INT);
+            $query->execute();
         } catch (\PDOException $e) {
             error_log("Database Error: " . $e->getMessage(), 0);
             $responseObj = new Response();
             $responseObj->errorResponse([$e->getMessage()], 500);
         }
+        // Get row count
+        $rowCount = $query->rowCount();
+        if($rowCount === 0) {
+            $responseObj->errorResponse(["Unable to Update User: ", "User record not found"], 404);
+        }
+        return $rowCount;
     }
 
     public function delete($id)
     {
-        $sql = "
-            DELETE FROM user
-            WHERE id = :id;
-        "; // TODO implement bind parameters
+        $sql = "DELETE FROM user WHERE id = :id;";
 
         try {
-            $statement = $this->db->prepare($sql);
-            $statement->execute(array('id' => $id));
-            return $statement->rowCount();
+            $query = $this->db->prepare($sql);
+            $query->execute(array('id' => $id));
+            return $query->rowCount();
         } catch (\PDOException $e) {
             error_log("Database Error: " . $e->getMessage(), 0);
             $responseObj = new Response();
@@ -146,31 +151,27 @@ class UserModel {
     // Validation Functions
 
     // This function validates all the input data required to create a new user
-    public function validateUser($inputData)
+    public function validateUser($inputData, $isUpdate=true)
     {
-        $username = $this->validateUsername($inputData->username ?? null);
-        $email = $this->validateEmail($inputData->email ?? null);
-        $hashed_password = $this->hashPassword($inputData->password ?? null);
-        $first_name = $this->validateName($inputData->first_name ?? null);
-        $last_name = $this->validateName($inputData->last_name ?? null);
-        $date_of_birth = $this->validateDateOfBirth($inputData->date_of_birth ?? null);
-        $gender = $this->validateGender($inputData->gender ?? null);
-        $country_id = $this->validateCountryId($inputData->country_id ?? null);
-//        // TODO Add multiple phone numbers
-
-        return (object) [
-            'username' => $username,
-            'email' => $email,
-            'hashed_password' => $hashed_password,
-            'first_name' => $first_name,
-            'last_name' => $last_name,
-            'date_of_birth' => $date_of_birth,
-            'gender' => $gender,
-            'country_id' => $country_id
-        ];
+        $cleanData = (object) [];
+        if ($isUpdate) {
+            $cleanData->id = $this->validateId($inputData->id ?? null);
+        } else {
+            $cleanData->username = $this->validateUsername($inputData->username ?? null);
+            $cleanData->email = $this->validateEmail($inputData->email ?? null);
+            $cleanData->hashed_password = $this->hashPassword($inputData->password ?? null);
+        }
+        $cleanData->first_name = $this->validateName($inputData->first_name ?? null);
+        $cleanData->last_name =  $this->validateName($inputData->last_name ?? null);
+        $cleanData->date_of_birth = $this->validateDateOfBirth($inputData->date_of_birth ?? null);
+        $cleanData->gender = $this->validateGender($inputData->gender ?? null);
+        $cleanData->country_id = $this->validateCountryId($inputData->country_id ?? null);
+        // TODO Add multiple phone numbers
+        return $cleanData;
     }
+
     // The rest of the validation functions validate specific fields/properties
-    public static function valivateId($id)
+    public function validateId($id)
     {
         if (!($id ?? false)) {
             throw new UserException("User Id is required for an existing user");
@@ -181,6 +182,7 @@ class UserModel {
         }
         return (int) $id;
     }
+
     public function validateUsername($username)
     {
         if (!($username ?? false)) {

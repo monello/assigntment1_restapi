@@ -74,30 +74,39 @@ class UserController {
         $responseObj = new Response();
         $requestData = $this->getJsonData($responseObj);
         try {
-            $userData = $this->userModel->validateUser($requestData);
+            $userData = $this->userModel->validateUser($requestData, false);
         } catch (\Exception $e) {
             $responseObj->errorResponse(["Unable to create User", $e->getMessage()], 400);
         }
         $this->userModel->checkUniqueUsername($userData->username);
         $this->userModel->checkUniqueEmail($userData->email);
-        $this->userModel->insert($userData);
-        $responseObj->successResponse(["User Created"], 201, $userData);
+        $rowsAffected = $this->userModel->insert($userData);
+        // prep the return data
+        $returnData = [];
+        $returnData['rows_affected'] = $rowsAffected;
+        $returnData['users'] = [$userData];
+        $responseObj->successResponse(["User Created"], 201, $returnData);
     }
 
     // MRL Done
     private function updateUserFromRequest($id)
     {
         $responseObj = new Response();
-        $result = $this->userModel->find($id);
-        if (! $result) {
-            $responseObj->errorResponse(["Resource not found"], 404);
+        // Get the data payload
+        $requestData = $this->getJsonData($responseObj);
+        $requestData->id = $id;
+        try {
+            $userData = $this->userModel->validateUser($requestData, true);
+        } catch (\Exception $e) {
+            $responseObj->errorResponse(["Unable to Update User", $e->getMessage()], 422);
         }
-        $input = (array) json_decode(file_get_contents('php://input'), TRUE);
-        if (! $this->validateUser($input)) { // TODO Spice up the validation
-            $responseObj->errorResponse(["Invalid input"], 422); // TODO This is due to missing fields in the paylod, make this more specific
-        }
-        $this->userModel->update($id, $input);
-        $responseObj->successResponse(["User Updated"], 201, []);
+        // Update the user record
+        $rowsAffected = $this->userModel->update($userData);
+        // Prep the return data
+        $returnData = [];
+        $returnData['rows_affected'] = $rowsAffected;
+        $returnData['users'] = [$userData];
+        $responseObj->successResponse(["User Created"], 201, $returnData);
     }
 
     // MRL Done
