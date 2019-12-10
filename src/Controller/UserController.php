@@ -43,7 +43,9 @@ class UserController {
             case 'PUT':
                 $this->updateUserFromRequest($this->userId);
                 break;
-            // TODO Add a PATCH to update individual fields
+            case 'PATCH':
+                $this->patchUserFromRequest($this->userId);
+                break;
             case 'DELETE':
                 $this->deleteUser($this->userId);
                 break;
@@ -108,6 +110,17 @@ class UserController {
         $returnData['rows_affected'] = $rowsAffected;
         $returnData['users'] = [$userData];
         $responseObj->successResponse(["User Created"], 201, $returnData);
+    }
+
+    private function patchUserFromRequest($id) {
+        // grab the data from the payload
+        // check which fields are being updated
+        // validate those fields individually
+
+        // each telephone number that has an id will be directly replaced
+        // each telephone number that does not have an id will be added
+        // ecch telephone number
+
     }
 
     private function deleteUser($id)

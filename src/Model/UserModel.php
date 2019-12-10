@@ -38,7 +38,7 @@ class UserModel {
             $responseObj->errorResponse([$e->getMessage()], 500);
         }
     }
-
+    
     public function find($id)
     {
         $sql = "
@@ -68,7 +68,7 @@ class UserModel {
             $responseObj->errorResponse([$e->getMessage()], 500);
         }
     }
-
+    
     public function insert(&$userData)
     {
         $responseObj = new Response();
