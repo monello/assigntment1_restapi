@@ -1,6 +1,8 @@
 <?php
 require 'bootstrap.php';
 
+// TODO move the final db Schema into this dbseed script
+
 $statement = <<<EOS
     CREATE TABLE IF NOT EXISTS person (
         id INT NOT NULL AUTO_INCREMENT,

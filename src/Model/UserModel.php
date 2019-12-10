@@ -12,7 +12,7 @@ class UserModel {
         $this->db = $db;
     }
 
-    // MRL - Done
+    // TODO Dissallow this action on the UserController (fetching all users, will nevere be a scenario), but keep this code until the ContactsController is done as an example
     public function findAll()
     {
         $sql = "
@@ -22,9 +22,16 @@ class UserModel {
                 user;
         ";
         try {
-            $statement = $this->db->query($sql);
-            $result = $statement->fetchAll(\PDO::FETCH_ASSOC);
-            return $result;
+            $query = $this->db->query($sql);
+            $result = $query->fetchAll(\PDO::FETCH_ASSOC);
+            // Get row count
+            $rowCount = $query->rowCount();
+            // prep the return data
+            $returnData = [];
+            $returnData['rows_affected'] = $rowCount;
+            $userData = $this->getAllUserPhoneNumbers($result);
+            $returnData['users'] = $userData;
+            return $returnData;
         } catch (\PDOException $e) {
             error_log("Database Error: " . $e->getMessage(), 0);
             $responseObj = new Response();
@@ -32,7 +39,6 @@ class UserModel {
         }
     }
 
-    // MRL - Done
     public function find($id)
     {
         $sql = "
@@ -47,7 +53,15 @@ class UserModel {
             $query->bindParam(':id', $id, \PDO::PARAM_INT);
             $query->execute();
             $result = $query->fetchAll(\PDO::FETCH_ASSOC);
-            return $result;
+            // Get row count
+            $rowCount = $query->rowCount();
+            // prep the return data
+            $returnData = [];
+            $returnData['rows_affected'] = $rowCount;
+            // Get the phone numbers
+            $this->getUserPhoneNumbers($id, $result[0]);
+            $returnData['users'] = $result;
+            return $returnData;
         } catch (\PDOException $e) {
             error_log("Database Error: " . $e->getMessage(), 0);
             $responseObj = new Response();
@@ -55,20 +69,21 @@ class UserModel {
         }
     }
 
-    // MRL - Done
-    // TODO username, email, password and phone numbers done separately
     public function insert(&$userData)
     {
         $responseObj = new Response();
         // Format Date of Birth
         $date_of_birth  = $userData->date_of_birth->format('Y-m-d');
-        // Insert record
-        $sql = 'INSERT INTO user 
-                (username, email, password, first_name, last_name, date_of_birth, gender, country_id) 
-            VALUES 
-                (:username, :email, :password, :first_name, :last_name, :date_of_birth, :gender, :country_id)
-        ';
+
         try {
+            $this->db->beginTransaction();
+
+            // Insert User record
+            $sql = 'INSERT INTO user 
+                    (username, email, password, first_name, last_name, date_of_birth, gender, country_id) 
+                VALUES 
+                    (:username, :email, :password, :first_name, :last_name, :date_of_birth, :gender, :country_id)
+            ';
             $query = $this->db->prepare($sql);
             $query->bindParam(':username', $userData->username, \PDO::PARAM_STR);
             $query->bindParam(':email', $userData->email, \PDO::PARAM_STR);
@@ -79,7 +94,33 @@ class UserModel {
             $query->bindParam(':gender', $userData->gender, \PDO::PARAM_STR);
             $query->bindParam(':country_id', $userData->country_id, \PDO::PARAM_INT);
             $query->execute();
+
+            $newId = $this->db->lastInsertId();
+
+            // Insert Telephone numbers
+            $sql_number = 'INSERT INTO user_contact_number
+                    (user_id, country_code, number, type, is_primary) 
+                VALUES 
+                    (:user_id, :country_code, :number, :type, :is_primary)
+            ';
+            foreach ($userData->phone_numbers as $phone_number) {
+                $query = $this->db->prepare($sql_number);
+                $query->bindParam(':user_id', $newId, \PDO::PARAM_INT);
+                $query->bindParam(':country_code', $phone_number->country_code, \PDO::PARAM_STR);
+                $query->bindParam(':number', $phone_number->number, \PDO::PARAM_STR);
+                $query->bindParam(':type', $phone_number->type, \PDO::PARAM_INT);
+                $query->bindParam(':is_primary', $phone_number->is_primary, \PDO::PARAM_BOOL);
+                $query->execute();
+
+                // grab the phone new id
+                $phone_number->id = $this->db->lastInsertId();
+            }
+
+            // Commit the trancsation
+            $this->db->commit();
         } catch (\PDOException $e) {
+            // roll back update/insert if error
+            $this->db->rollBack();
             error_log("Database Insert-User Query Error: " . $e->getMessage(), 0);
             $responseObj->errorResponse(["Database Query Error: ", "Insert statement invalid"], 500);
         }
@@ -89,29 +130,31 @@ class UserModel {
             $responseObj->errorResponse(["There was an error creating the user account - please try again"], 500);
         }
         // Get last user id so we can return the user id in the json
-        $userData->id = $this->db->lastInsertId();
+        $userData->id = $newId;
         unset($userData->hashed_password);
         return $rowCount;
     }
 
     // TODO username, email, password and phone numbers done separately
-    public function update(&$userData)
+    public function replace(&$userData)
     {
         $responseObj = new Response();
         // Format Date of Birth
         $date_of_birth  = $userData->date_of_birth->format('Y-m-d');
-        // prep the SQL
-        $sql = "
-            UPDATE user
-            SET 
-                first_name = :first_name, 
-                last_name = :last_name, 
-                date_of_birth = :date_of_birth, 
-                gender = :gender, 
-                country_id = :country_id
-            WHERE id = :id;
-        ";
+
         try {
+            $this->db->beginTransaction();
+            // prep the SQL
+            $sql = "
+                UPDATE user
+                SET 
+                    first_name = :first_name, 
+                    last_name = :last_name, 
+                    date_of_birth = :date_of_birth, 
+                    gender = :gender, 
+                    country_id = :country_id
+                WHERE id = :id;
+            ";
             $query = $this->db->prepare($sql);
             $query->bindParam(':id', $userData->id, \PDO::PARAM_STR);
             $query->bindParam(':first_name', $userData->first_name, \PDO::PARAM_STR);
@@ -120,7 +163,40 @@ class UserModel {
             $query->bindParam(':gender', $userData->gender, \PDO::PARAM_STR);
             $query->bindParam(':country_id', $userData->country_id, \PDO::PARAM_INT);
             $query->execute();
+
+            // Delete all the existing numbers
+            $delete_numbers_sql = '
+                DELETE FROM user_contact_number
+                WHERE user_id = :user_id
+            ';
+            $query = $this->db->prepare($delete_numbers_sql);
+            $query->bindParam(':user_id', $userData->id, \PDO::PARAM_STR);
+            $query->execute();
+
+            // Insert the ne Telephone numbers
+            $sql_number = 'INSERT INTO user_contact_number
+                    (user_id, country_code, number, type, is_primary) 
+                VALUES 
+                    (:user_id, :country_code, :number, :type, :is_primary)
+            ';
+            foreach ($userData->phone_numbers as $phone_number) {
+                $query = $this->db->prepare($sql_number);
+                $query->bindParam(':user_id', $userData->id, \PDO::PARAM_INT);
+                $query->bindParam(':country_code', $phone_number->country_code, \PDO::PARAM_STR);
+                $query->bindParam(':number', $phone_number->number, \PDO::PARAM_STR);
+                $query->bindParam(':type', $phone_number->type, \PDO::PARAM_INT);
+                $query->bindParam(':is_primary', $phone_number->is_primary, \PDO::PARAM_BOOL);
+                $query->execute();
+
+                // grab the phone new id
+                $phone_number->id = $this->db->lastInsertId();
+            }
+
+            // Commit the trancsation
+            $this->db->commit();
         } catch (\PDOException $e) {
+            // roll back update/insert if error
+            $this->db->rollBack();
             error_log("Database Error: " . $e->getMessage(), 0);
             $responseObj = new Response();
             $responseObj->errorResponse([$e->getMessage()], 500);
@@ -136,16 +212,21 @@ class UserModel {
     public function delete($id)
     {
         $sql = "DELETE FROM user WHERE id = :id;";
-
         try {
             $query = $this->db->prepare($sql);
-            $query->execute(array('id' => $id));
-            return $query->rowCount();
+            $query->bindParam(':id', $id, \PDO::PARAM_INT);
+            $query->execute();
         } catch (\PDOException $e) {
             error_log("Database Error: " . $e->getMessage(), 0);
             $responseObj = new Response();
             $responseObj->errorResponse([$e->getMessage()], 500);
         }
+        // Get row count
+        $rowCount = $query->rowCount();
+        if($rowCount === 0) {
+            throw new UserException("User record not found");
+        }
+        return $rowCount;
     }
 
     // Validation Functions
@@ -166,23 +247,22 @@ class UserModel {
         $cleanData->date_of_birth = $this->validateDateOfBirth($inputData->date_of_birth ?? null);
         $cleanData->gender = $this->validateGender($inputData->gender ?? null);
         $cleanData->country_id = $this->validateCountryId($inputData->country_id ?? null);
-        // TODO Add multiple phone numbers
+        $cleanData->phone_numbers = $this->validatePhoneNumbers($inputData->phone_numbers ?? null);
         return $cleanData;
     }
 
     // The rest of the validation functions validate specific fields/properties
     public function validateId($id)
     {
-        if (!($id ?? false)) {
+        if (!($id ?? false) && $id !== 0) {
             throw new UserException("User Id is required for an existing user");
         }
         // Must be an integer > 0
-        if (!filter_var($id, FILTER_VALIDATE_INT, array("options" => array("min_range"=>1)))) {
+        if (!filter_var($id, FILTER_VALIDATE_INT, ["options" => ["min_range"=>1]])) {
             throw new UserException("User Id is invalid");
         }
         return (int) $id;
     }
-
     public function validateUsername($username)
     {
         if (!($username ?? false)) {
@@ -291,6 +371,82 @@ class UserModel {
         }
         return $country_id;
     }
+    public function validatePhoneNumbers($phone_numbers)
+    {
+        if (!($phone_numbers ?? false) || !count($phone_numbers)) {
+            throw new UserException("At least one Phone Number is required");
+        }
+        // loop throug each provided number
+        $cleanNumbers = [];
+        $primaryNumberCount = 0;
+        foreach ($phone_numbers as $phone_number) {
+            $phone_number = $this->validatePhoneNumber($phone_number);
+            if ($phone_number->is_primary) {
+                $primaryNumberCount++;
+            }
+            $cleanNumbers[] = $phone_number;
+        }
+        if (!$primaryNumberCount) {
+            throw new UserException("One Phone Number must be set to the Primary number");
+        } elseif ($primaryNumberCount > 1) {
+            throw new UserException("Only one Phone Number must be set to the Primary number");
+        } else {
+            return $cleanNumbers;
+        }
+    }
+    public function validatePhoneNumber($phone_number)
+    {
+        // Country Code
+        // ------------
+        if (!($phone_number->country_code ?? false)) {
+            throw new UserException("Country Code is required for all Phone Numbers");
+        }
+        $phone_number->country_code = trim($phone_number->country_code);
+        // Remove Spaces (not going to moan about spaces)
+        $phone_number->country_code = preg_replace('/\s/', '', $phone_number->country_code);
+        // Check for Invalid Characters
+        $hasBadChars = preg_match('/[^0-9\+]/', $phone_number->country_code);
+        $codeLength = strlen($phone_number->country_code);
+        if ($hasBadChars || $codeLength < 3 || $codeLength > 10) {
+            throw new UserException("Phone Number, Country Code is invalid");
+        }
+
+        // Number
+        // ------------
+        if (!($phone_number->number ?? false)) {
+            throw new UserException("Number is required for all Phone Numbers");
+        }
+        $phone_number->number = trim($phone_number->number);
+        // Reduce Spaces (not going to moan about spaces)
+        $phone_number->number = preg_replace('/\s+/', ' ', $phone_number->number);
+        // Check for Invalid Characters
+        $hasBadChars = preg_match('/[^0-9\s\(\)\-]/', $phone_number->number);
+        $codeLength = strlen($phone_number->number);
+        if ($hasBadChars || $codeLength < 5 || $codeLength > 20) {
+            throw new UserException("Phone Number, Number is invalid");
+        }
+
+        // Number Type
+        // ------------
+        if (!($phone_number->type ?? false) && $phone_number->type !== 0) {
+            throw new UserException("Number-Type is required for all Phone Numbers");
+        }
+        if (!filter_var($phone_number->type, FILTER_VALIDATE_INT, ["options" => ["min_range"=>1,"max_range"=>3]])) {
+            throw new UserException("Phone Number, Number-Type is invalid");
+        }
+
+        // Is Primary Flag
+        // ---------------
+        if (!isset($phone_number->is_primary)) {
+            throw new UserException("Is Primary option for Phone number may not be blank");
+        }
+        if ($phone_number->is_primary !== true && $phone_number->is_primary !== false) {
+            throw new UserException("Is Primary option for Phone number is invalid (type)");
+        }
+
+        return $phone_number;
+
+    }
 
     // Utility Functions
 
@@ -333,6 +489,40 @@ class UserModel {
             }
         } catch (PDOException $exception) {
             $responseObj->errorResponse(["There was an issue creating a user account"], 500);
+        }
+    }
+    // TODO - This scenation should not be needed in this app
+    public function getAllUserPhoneNumbers($userData)
+    {
+        $returnData = [];
+        foreach ($userData as $user) {
+            $this->getUserPhoneNumbers($user["id"], $user);
+            $returnData[] = $user;
+        }
+        return $returnData;
+    }
+    public function getUserPhoneNumbers($id, &$userData)
+    {
+        $sql = '
+            SELECT * FROM user_contact_number
+            WHERE user_id = :id
+        ';
+        try {
+            $query = $this->db->prepare($sql);
+            $query->bindParam(':id', $id, \PDO::PARAM_INT);
+            $query->execute();
+            $result = $query->fetchAll(\PDO::FETCH_ASSOC);
+            // Get row count
+            $rowCount = $query->rowCount();
+            if ($rowCount > 0) {
+                $userData["phone_numbers"] = $result;
+            } else {
+                $userData["phone_numbers"] = [];
+            }
+        } catch (\PDOException $e) {
+            error_log("Database Error: " . $e->getMessage(), 0);
+            $responseObj = new Response();
+            $responseObj->errorResponse([$e->getMessage()], 500);
         }
     }
 }

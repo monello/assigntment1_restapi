@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:8889
--- Generation Time: Dec 07, 2019 at 08:58 PM
+-- Generation Time: Dec 10, 2019 at 04:50 PM
 -- Server version: 5.7.26
 -- PHP Version: 7.3.8
 
@@ -41,8 +41,8 @@ INSERT INTO `lst_contact_number_types` (`id`, `label`) VALUES
 --
 
 CREATE TABLE `lst_countries` (
-    `id` smallint(6) NOT NULL COMMENT 'Country ID',
-    `label` varchar(255) NOT NULL COMMENT 'Country Label'
+     `id` smallint(6) NOT NULL COMMENT 'Country ID',
+     `label` varchar(255) NOT NULL COMMENT 'Country Label'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='List of Countries';
 
 --
@@ -290,7 +290,7 @@ CREATE TABLE `user` (
 CREATE TABLE `user_contact_number` (
     `id` bigint(20) NOT NULL COMMENT 'User-Contact-number ID',
     `user_id` bigint(20) NOT NULL COMMENT 'Link to the User table',
-    `country_code` varchar(5) NOT NULL COMMENT 'Country Code of the related phone number',
+    `country_code` varchar(10) NOT NULL COMMENT 'Country Code of the related phone number',
     `number` varchar(20) NOT NULL COMMENT 'The Phone Number',
     `type` tinyint(4) NOT NULL COMMENT 'The phone number Type',
     `is_primary` tinyint(4) NOT NULL COMMENT 'Indicates if this record is the primary number'
@@ -379,7 +379,7 @@ ALTER TABLE `lst_countries`
 -- AUTO_INCREMENT for table `user`
 --
 ALTER TABLE `user`
-    MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'User ID', AUTO_INCREMENT=2;
+    MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'User ID', AUTO_INCREMENT=27;
 
 --
 -- AUTO_INCREMENT for table `user_contact_number`

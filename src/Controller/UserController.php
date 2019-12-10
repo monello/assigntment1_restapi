@@ -2,6 +2,7 @@
 namespace Src\Controller;
 
 use Src\Controller\Response;
+use Src\Model\UserException;
 use Src\Model\UserModel;
 
 class UserController {
@@ -28,28 +29,31 @@ class UserController {
         switch ($this->requestMethod) {
             case 'GET':
                 if ($this->userId) {
-                    $this->getUser($this->userId); // MRL Done
-                } else {
-                    $this->getAllUsers(); // MRL Done
+                    $this->getUser($this->userId);
+                }
+                else {
+                    $this->getAllUsers(); // TODO Dissalow fetching of all records on the UserController, but kee the code until the ContactsController is complete as an example
+//                    $responseObj = new Response();
+//                    $responseObj->errorResponse(["Method Forbidden"], 403);
                 };
                 break;
             case 'POST':
-                 $this->createUserFromRequest(); // MRL Done
+                 $this->createUserFromRequest();
                 break;
             case 'PUT':
-                $this->updateUserFromRequest($this->userId); // MRL Done
+                $this->updateUserFromRequest($this->userId);
                 break;
             // TODO Add a PATCH to update individual fields
             case 'DELETE':
-                $this->deleteUser($this->userId); // MRL Done
+                $this->deleteUser($this->userId);
                 break;
             default:
                 $responseObj = new Response();
-                $responseObj->errorResponse(["Method not allowed"], 405);
+                $responseObj->errorResponse(["Method Not Allowed"], 405);
         }
     }
 
-    // MRL Done
+    // TODO Dissallow this action on the UserController (fetching all users, will nevere be a scenario), but keep this code until the ContactsController is done as an example
     private function getAllUsers()
     {
         $result = $this->userModel->findAll();
@@ -57,7 +61,6 @@ class UserController {
         $responseObj->successResponse(["Success"], 200, $result);
     }
 
-    // MRL Done
     private function getUser($id)
     {
         $responseObj = new Response();
@@ -68,7 +71,6 @@ class UserController {
         $responseObj->successResponse(["Success"], 200, $result);
     }
 
-    // MRL Done
     private function createUserFromRequest()
     {
         $responseObj = new Response();
@@ -88,7 +90,6 @@ class UserController {
         $responseObj->successResponse(["User Created"], 201, $returnData);
     }
 
-    // MRL Done
     private function updateUserFromRequest($id)
     {
         $responseObj = new Response();
@@ -101,7 +102,7 @@ class UserController {
             $responseObj->errorResponse(["Unable to Update User", $e->getMessage()], 422);
         }
         // Update the user record
-        $rowsAffected = $this->userModel->update($userData);
+        $rowsAffected = $this->userModel->replace($userData);
         // Prep the return data
         $returnData = [];
         $returnData['rows_affected'] = $rowsAffected;
@@ -109,15 +110,19 @@ class UserController {
         $responseObj->successResponse(["User Created"], 201, $returnData);
     }
 
-    // MRL Done
     private function deleteUser($id)
     {
         $responseObj = new Response();
-        $result = $this->userModel->find($id);
-        if (! $result) {
-            $responseObj->errorResponse(["Resource not found"], 404);
+        try {
+            $id = $this->userModel->validateId($id);
+        } catch (UserException $e) {
+            $responseObj->errorResponse(["Unable to Delete User", $e->getMessage()], 422);
         }
-        $this->userModel->delete($id);
+        try {
+            $this->userModel->delete($id);
+        } catch (UserException $e) {
+            $responseObj->errorResponse(["Unable to Delete User: ", $e->getMessage()], 404);
+        }
         $responseObj->successResponse(["User Deleted"], 201, []);
     }
 
