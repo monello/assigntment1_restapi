@@ -55,7 +55,14 @@ class UserController {
                 };
                 break;
             case 'DELETE':
-                $this->deleteUser();
+                if ($this->userId) {
+                    $this->deleteUser();
+                }
+                else {
+                    // Cannot Patch any data without a user-id
+                    $responseObj = new Response();
+                    $responseObj->errorResponse(["Method Forbidden"], 403);
+                };
                 break;
             default:
                 $responseObj = new Response();
@@ -65,14 +72,14 @@ class UserController {
 
 
     private function getUser()
-        {
-            $responseObj = new Response();
-            $result = $this->userModel->find($this->userId);
-            if (!$result["rows_affected"]) {
-                $responseObj->errorResponse(["User Record not found"], 404);
-            }
-            $responseObj->successResponse(["Success"], 200, $result);
+    {
+        $responseObj = new Response();
+        $result = $this->userModel->find($this->userId);
+        if (!$result["rows_affected"]) {
+            $responseObj->errorResponse(["User Record not found"], 404);
         }
+        $responseObj->successResponse(["Success"], 200, $result);
+    }
 
     private function createUser()
     {
@@ -135,11 +142,11 @@ class UserController {
         $responseObj = new Response();
         $requestData = Utils::getJsonData($responseObj);
         try {
-            $password = $this->userModel->validatePassword($requestData->password);
+            $hashed_password = $this->userModel->hashPassword($requestData->password);
         } catch (\Exception $e) {
             $responseObj->errorResponse(["Unable to update Password", $e->getMessage()], 400);
         }
-        $hashed_password = $this->userModel->hashPassword($password);
+
         $rowsAffected = $this->userModel->updatePassword($this->userId, $hashed_password);
         // prep the return data
         $returnData = [];
