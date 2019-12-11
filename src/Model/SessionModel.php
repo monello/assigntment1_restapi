@@ -97,4 +97,22 @@ class SessionModel {
         ];
     }
 
+    public function deleteSession($session_id, $access_token) {
+        $sql = "DELETE FROM user_session WHERE id = :id AND access_token = :access_token";
+        try {
+            $query = $this->db->prepare($sql);
+            $query->bindParam(':id', $session_id, \PDO::PARAM_INT);
+            $query->bindParam(':access_token', $access_token, \PDO::PARAM_STR);
+            $query->execute();
+            return (object) [
+                'rows_affected' => $query->rowCount(),
+                'session_id' => $session_id
+            ];
+        } catch (\PDOException $e) {
+            error_log("Database Error: " . $e->getMessage(), 0);
+            $responseObj = new Response();
+            $responseObj->errorResponse(["There was an issue loggin out"], 500);
+        }
+    }
+
 }

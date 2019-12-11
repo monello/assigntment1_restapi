@@ -117,11 +117,21 @@ class SessionController {
     private function refreshSession()
     {
         echo "REFRESH SESSION\n";
+
     }
 
     private function deleteSession()
     {
-        echo "LOGGED OUT - EXISTING SESSION DELETED\n";
+        $responseObj = new Response();
+        if (!array_key_exists('HTTP_AUTHORIZATION', $_SERVER)) {
+            $responseObj->errorResponse(["Access Token not Provided"], 401);
+        }
+        $accessToken = $_SERVER['HTTP_AUTHORIZATION'];
+        $returnData = $this->sessionModel->deleteSession($this->sessionId, $accessToken);
+        if ($returnData->rows_affected === 0) {
+            $responseObj->errorResponse(["Failed to logout:", "Invalid Token Provided"], 400);
+        }
+        $responseObj->successResponse(["Logout Successful"], 200, $returnData);
     }
 
 }
