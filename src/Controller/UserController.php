@@ -2,52 +2,60 @@
 namespace Src\Controller;
 
 use Src\Controller\Response;
-use Src\Model\UserException;
+use Src\System\UserException;
 use Src\Model\UserModel;
+use Src\System\Utils;
 
 class UserController {
 
     private $db;
     private $requestMethod;
     private $userId;
+    private $uri;
 
     private $userModel;
 
-    public function __construct($db, $requestMethod, $userId)
+    public function __construct($db, $requestMethod, $uri, $userId)
     {
         $this->db = $db;
         $this->requestMethod = $requestMethod;
+        $this->uri = $uri;
         $this->userId = $userId;
 
         $this->userModel = new UserModel($db);
     }
-
-    // TODO Add some setters to help validate the class properties when setting them in the constructor
 
     public function processRequest()
     {
         switch ($this->requestMethod) {
             case 'GET':
                 if ($this->userId) {
-                    $this->getUser($this->userId);
+                    $this->getUser();
                 }
                 else {
-                    $this->getAllUsers(); // TODO Dissalow fetching of all records on the UserController, but kee the code until the ContactsController is complete as an example
-//                    $responseObj = new Response();
-//                    $responseObj->errorResponse(["Method Forbidden"], 403);
+                    // Don't allow listing all users (this could be allowed in the future if there were Admin Users).
+                    $responseObj = new Response();
+                    $responseObj->errorResponse(["Method Forbidden"], 403);
                 };
                 break;
             case 'POST':
-                 $this->createUserFromRequest();
+                 $this->createUser();
                 break;
             case 'PUT':
-                $this->updateUserFromRequest($this->userId);
+                $this->updateUser();
                 break;
             case 'PATCH':
-                $this->patchUserFromRequest($this->userId);
+                if ($this->userId) {
+                    $this->patchUser();
+                }
+                else {
+                    // Cannot Patch any data without a user-id
+                    $responseObj = new Response();
+                    $responseObj->errorResponse(["Method Forbidden"], 403);
+                };
                 break;
             case 'DELETE':
-                $this->deleteUser($this->userId);
+                $this->deleteUser();
                 break;
             default:
                 $responseObj = new Response();
@@ -55,28 +63,21 @@ class UserController {
         }
     }
 
-    // TODO Dissallow this action on the UserController (fetching all users, will nevere be a scenario), but keep this code until the ContactsController is done as an example
-    private function getAllUsers()
-    {
-        $result = $this->userModel->findAll();
-        $responseObj = new Response();
-        $responseObj->successResponse(["Success"], 200, $result);
-    }
 
-    private function getUser($id)
-    {
-        $responseObj = new Response();
-        $result = $this->userModel->find($id);
-        if (!$result) {
-            $responseObj->errorResponse(["Record not found"], 404);
+    private function getUser()
+        {
+            $responseObj = new Response();
+            $result = $this->userModel->find($this->userId);
+            if (!$result["rows_affected"]) {
+                $responseObj->errorResponse(["User Record not found"], 404);
+            }
+            $responseObj->successResponse(["Success"], 200, $result);
         }
-        $responseObj->successResponse(["Success"], 200, $result);
-    }
 
-    private function createUserFromRequest()
+    private function createUser()
     {
         $responseObj = new Response();
-        $requestData = $this->getJsonData($responseObj);
+        $requestData = Utils::getJsonData($responseObj);
         try {
             $userData = $this->userModel->validateUser($requestData, false);
         } catch (\Exception $e) {
@@ -92,12 +93,86 @@ class UserController {
         $responseObj->successResponse(["User Created"], 201, $returnData);
     }
 
-    private function updateUserFromRequest($id)
+    private function patchUser()
+    {
+        echo $this->uri."\n";
+        switch (true) {
+            case (preg_match('/\/username\/?$/', $this->uri)):
+                $this->updateUsername();
+                break;
+            case (preg_match('/\/password\/?$/', $this->uri)):
+                $this->updatePassword();
+                break;
+            case (preg_match('/\/email\/?$/', $this->uri)):
+                $this->updateEmail();
+                break;
+            default:
+                $responseObj = new Response();
+                $responseObj->errorResponse(["Method Forbidden"], 403);
+        }
+    }
+
+    private function updateUsername()
+    {
+        $responseObj = new Response();
+        $requestData = Utils::getJsonData($responseObj);
+        try {
+            $username = $this->userModel->validateUsername($requestData->username);
+        } catch (\Exception $e) {
+            $responseObj->errorResponse(["Unable to update Username", $e->getMessage()], 400);
+        }
+        $this->userModel->checkUniqueUsername($username);
+        $rowsAffected = $this->userModel->updateUsername($this->userId, $username);
+        // prep the return data
+        $returnData = [];
+        $returnData['rows_affected'] = $rowsAffected;
+        $returnData['username'] = [$username];
+        $responseObj->successResponse(["Username Updated"], 200, $returnData);
+    }
+
+    private function updatePassword()
+    {
+        $responseObj = new Response();
+        $requestData = Utils::getJsonData($responseObj);
+        try {
+            $password = $this->userModel->validatePassword($requestData->password);
+        } catch (\Exception $e) {
+            $responseObj->errorResponse(["Unable to update Password", $e->getMessage()], 400);
+        }
+        $hashed_password = $this->userModel->hashPassword($password);
+        $rowsAffected = $this->userModel->updatePassword($this->userId, $hashed_password);
+        // prep the return data
+        $returnData = [];
+        $returnData['rows_affected'] = $rowsAffected;
+        $responseObj->successResponse(["Password Updated"], 200, $returnData);
+    }
+
+    // TODO Ideally you'd want to have the user confirm the new email address, have a confirmed (Y/N) flag and some token that can be sent via email.
+    //  - Token management would include expiring the token automatically after X-time and expiring it immediately after user confirmed
+    private function updateEmail()
+    {
+        $responseObj = new Response();
+        $requestData = Utils::getJsonData($responseObj);
+        try {
+            $email = $this->userModel->validateEmail($requestData->email);
+        } catch (\Exception $e) {
+            $responseObj->errorResponse(["Unable to update Password", $e->getMessage()], 400);
+        }
+        $this->userModel->checkUniqueEmail($email);
+        $rowsAffected = $this->userModel->updateEmail($this->userId, $email);
+        // prep the return data
+        $returnData = [];
+        $returnData['rows_affected'] = $rowsAffected;
+        $returnData['email'] = [$email];
+        $responseObj->successResponse(["Password Updated"], 200, $returnData);
+    }
+
+    private function updateUser()
     {
         $responseObj = new Response();
         // Get the data payload
-        $requestData = $this->getJsonData($responseObj);
-        $requestData->id = $id;
+        $requestData = Utils::getJsonData($responseObj);
+        $requestData->id = $this->$this->userId;
         try {
             $userData = $this->userModel->validateUser($requestData, true);
         } catch (\Exception $e) {
@@ -112,22 +187,11 @@ class UserController {
         $responseObj->successResponse(["User Created"], 201, $returnData);
     }
 
-    private function patchUserFromRequest($id) {
-        // grab the data from the payload
-        // check which fields are being updated
-        // validate those fields individually
-
-        // each telephone number that has an id will be directly replaced
-        // each telephone number that does not have an id will be added
-        // ecch telephone number
-
-    }
-
-    private function deleteUser($id)
+    private function deleteUser()
     {
         $responseObj = new Response();
         try {
-            $id = $this->userModel->validateId($id);
+            $id = $this->userModel->validateId($this->userId);
         } catch (UserException $e) {
             $responseObj->errorResponse(["Unable to Delete User", $e->getMessage()], 422);
         }
@@ -139,19 +203,4 @@ class UserController {
         $responseObj->successResponse(["User Deleted"], 201, []);
     }
 
-    // Utility Functions
-    private function getJsonData($responseObj)
-    {
-        // Check tha the request's Content-Type header is JSON
-        if($_SERVER['CONTENT_TYPE'] !== 'application/json') {
-            $responseObj->errorResponse(["Content Type header not set to JSON"], 400);
-        }
-        // Check that the posted content is in JSON Format
-        $rawPostData = file_get_contents('php://input');
-        $data = json_decode($rawPostData);
-        if (!$data) {
-            $responseObj->errorResponse(["Request body is not valid JSON"], 400);
-        }
-        return $data;
-    }
 }

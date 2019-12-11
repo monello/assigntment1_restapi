@@ -1,4 +1,4 @@
 <?php
-namespace Src\Model;
+namespace Src\System;
 
 class UserException extends \Exception { }
