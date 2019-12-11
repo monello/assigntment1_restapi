@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:8889
--- Generation Time: Dec 10, 2019 at 04:50 PM
+-- Generation Time: Dec 11, 2019 at 09:30 PM
 -- Server version: 5.7.26
 -- PHP Version: 7.3.8
 
@@ -41,8 +41,8 @@ INSERT INTO `lst_contact_number_types` (`id`, `label`) VALUES
 --
 
 CREATE TABLE `lst_countries` (
-     `id` smallint(6) NOT NULL COMMENT 'Country ID',
-     `label` varchar(255) NOT NULL COMMENT 'Country Label'
+    `id` smallint(6) NOT NULL COMMENT 'Country ID',
+    `label` varchar(255) NOT NULL COMMENT 'Country Label'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='List of Countries';
 
 --
@@ -281,6 +281,7 @@ CREATE TABLE `user` (
     `date_last_updated` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT 'Date the Record was last updated'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='The System Users';
 
+
 -- --------------------------------------------------------
 
 --
@@ -295,6 +296,7 @@ CREATE TABLE `user_contact_number` (
     `type` tinyint(4) NOT NULL COMMENT 'The phone number Type',
     `is_primary` tinyint(4) NOT NULL COMMENT 'Indicates if this record is the primary number'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='User Contact Numbers';
+
 
 -- --------------------------------------------------------
 
@@ -379,13 +381,19 @@ ALTER TABLE `lst_countries`
 -- AUTO_INCREMENT for table `user`
 --
 ALTER TABLE `user`
-    MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'User ID', AUTO_INCREMENT=27;
+    MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'User ID', AUTO_INCREMENT=49;
 
 --
 -- AUTO_INCREMENT for table `user_contact_number`
 --
 ALTER TABLE `user_contact_number`
-    MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'User-Contact-number ID';
+    MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'User-Contact-number ID', AUTO_INCREMENT=16;
+
+--
+-- AUTO_INCREMENT for table `user_session`
+--
+ALTER TABLE `user_session`
+    MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'Session ID', AUTO_INCREMENT=5;
 
 --
 -- Constraints for dumped tables
@@ -396,6 +404,12 @@ ALTER TABLE `user_contact_number`
 --
 ALTER TABLE `user`
     ADD CONSTRAINT `fk_user_country_id` FOREIGN KEY (`country_id`) REFERENCES `lst_countries` (`id`);
+
+--
+-- Constraints for table `user_contact_number`
+--
+ALTER TABLE `user_contact_number`
+    ADD CONSTRAINT `fk_user_phone_number` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `user_session`
