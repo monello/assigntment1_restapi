@@ -6,7 +6,8 @@ use Src\System\UserContactException;
 use Src\Model\UserContactModel;
 use Src\System\Utils;
 
-class UserContactController {
+class UserContactController
+{
 
     private $db;
     private $requestMethod;
@@ -29,6 +30,9 @@ class UserContactController {
 
     public function processRequest()
     {
+        $auth = new AuthController($this->db);
+        $auth->authenticate();
+
         switch ($this->requestMethod) {
             case 'GET':
                 if ($this->userId) {
@@ -139,7 +143,7 @@ class UserContactController {
             // Delete the existing Contact Number
             $this->userContactModel->deleteOne($this->contactId);
             // Insert the updated Contact Number
-            $rowsAffected = $this->userContactModel->insert($this->userId, $userContactData);
+            $returnData = $this->userContactModel->insert($this->userId, $userContactData);
             $this->db->commit();
         } catch (\PDOException $e) {
             $this->db->rollBack();
@@ -148,9 +152,6 @@ class UserContactController {
             $this->db->rollBack();
             $responseObj->errorResponse([$e->getMessage()], 404);
         }
-        // prep the return data
-        $returnData = [];
-        $returnData['rows_affected'] = $rowsAffected;
         $responseObj->successResponse(["User Contact Number Updated"], 201, $returnData);
     }
 

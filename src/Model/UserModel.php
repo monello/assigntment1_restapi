@@ -5,8 +5,8 @@ use Src\Controller\Response;
 use Src\System\UserContactException;
 use Src\System\UserException;
 
-class UserModel {
-
+class UserModel
+{
     private $db = null;
 
     public function __construct($db)
@@ -35,7 +35,8 @@ class UserModel {
             $returnData['rows_affected'] = $rowCount;
             // Get the contact numbers
             $userContactModel = new UserContactModel($this->db);
-            $userContactModel->getContactNumbersByUserId($id, $result[0]);
+            $userContacts = $userContactModel->findAll($id);
+            $result['contact_numbers'] = $userContacts['contact_numbers'];
             $returnData['users'] = $result;
             return $returnData;
         } catch (\PDOException $e) {
@@ -125,8 +126,7 @@ class UserModel {
         // Get row count
         $rowCount = $query->rowCount();
         if($rowCount === 0) {
-            error_log("Unable to Update User:  User record not found", 0);
-            $responseObj->errorResponse(["Unable to Update User: ", "User record not found"], 404);
+            $responseObj->errorResponse(["Request Completed Successfully: ", "Data was unchanged"], 200);
         }
         return $rowCount;
     }

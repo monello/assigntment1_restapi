@@ -2,7 +2,8 @@
 namespace Src\System;
 
 
-abstract class Utils {
+abstract class Utils
+{
     public static function getJsonData($responseObj)
     {
         // Check tha the request's Content-Type header is JSON

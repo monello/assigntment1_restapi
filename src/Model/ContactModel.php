@@ -3,7 +3,8 @@ namespace Src\Model;
 
 use Src\Controller\Response;
 
-class ContactModel {
+class ContactModel
+{
 
     private $db = null;
 

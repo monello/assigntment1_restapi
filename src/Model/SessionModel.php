@@ -5,7 +5,8 @@ namespace Src\Model;
 use Src\Controller\Response;
 use Src\System\SessionException;
 
-class SessionModel {
+class SessionModel
+{
     private $db = null;
 
     public function __construct($db)
@@ -169,7 +170,7 @@ class SessionModel {
         }
     }
 
-    public function findSession($session_id, $access_token, $refresh_token)
+    public function findRefreshSession($session_id, $access_token, $refresh_token)
     {
         $sql = "SELECT 
                     s.id as session_id, 
@@ -201,7 +202,34 @@ class SessionModel {
             $responseObj = new Response();
             $responseObj->errorResponse(["There was an issue refreshing the token"], 500);
         }
+    }
 
+    public function getSession($access_token)
+    {
+        $sql = "SELECT 
+                    s.id as session_id, 
+                    s.user_id as user_id, 
+                    s.access_token, 
+                    u.is_active, 
+                    u.login_attempts, 
+                    s.access_token_expiry
+                FROM user_session s, user u 
+                WHERE u.id = s.user_id 
+                AND s.access_token = :access_token 
+        ";
+        try {
+            $query = $this->db->prepare($sql);
+            $query->bindParam(':access_token', $access_token, \PDO::PARAM_STR);
+            $query->execute();
+            return (object) [
+                'rows_affected' => $query->rowCount(),
+                'session' => $query->fetch(\PDO::FETCH_OBJ)
+            ];
+        } catch (\PDOException $e) {
+            error_log("Database Error: " . $e->getMessage(), 0);
+            $responseObj = new Response();
+            $responseObj->errorResponse(["There was an issue refreshing the token"], 500);
+        }
     }
 
 

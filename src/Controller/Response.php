@@ -4,7 +4,8 @@
 namespace Src\Controller;
 
 
-class Response {
+class Response
+{
     private $success;
     private $messages = [];
     private $data;

@@ -4,7 +4,8 @@ namespace Src\Model;
 use Src\Controller\Response;
 use Src\System\UserContactException;
 
-class UserContactModel {
+class UserContactModel
+{
 
     private $db = null;
 
@@ -55,7 +56,10 @@ class UserContactModel {
         if($rowTotalCount === 0) {
             $responseObj->errorResponse(["There was an error creating the user contact numbers - please try again"], 500);
         }
-        return $rowTotalCount;
+        return [
+            'rows_affected' => $rowTotalCount,
+            'contact_numbers' => $userContactsData
+        ];
     }
 
     public function findOne($id)

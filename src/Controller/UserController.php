@@ -1,13 +1,12 @@
 <?php
 namespace Src\Controller;
 
-use Src\Controller\Response;
 use Src\System\UserException;
 use Src\Model\UserModel;
 use Src\System\Utils;
 
-class UserController {
-
+class UserController
+{
     private $db;
     private $requestMethod;
     private $userId;
@@ -27,9 +26,12 @@ class UserController {
 
     public function processRequest()
     {
+        $auth = new AuthController($this->db);
+
         switch ($this->requestMethod) {
             case 'GET':
                 if ($this->userId) {
+                    $auth->authenticate();
                     $this->getUser();
                 }
                 else {
@@ -42,10 +44,12 @@ class UserController {
                  $this->createUser();
                 break;
             case 'PUT':
+                $auth->authenticate();
                 $this->updateUser();
                 break;
             case 'PATCH':
                 if ($this->userId) {
+                    $auth->authenticate();
                     $this->patchUser();
                 }
                 else {
@@ -56,6 +60,7 @@ class UserController {
                 break;
             case 'DELETE':
                 if ($this->userId) {
+                    $auth->authenticate();
                     $this->deleteUser();
                 }
                 else {
@@ -81,6 +86,7 @@ class UserController {
         $responseObj->successResponse(["Success"], 200, $result);
     }
 
+    // This would be registering a new user, so there would not be an auth-token for this user
     private function createUser()
     {
         $responseObj = new Response();
@@ -102,7 +108,6 @@ class UserController {
 
     private function patchUser()
     {
-        echo $this->uri."\n";
         switch (true) {
             case (preg_match('/\/username\/?$/', $this->uri)):
                 $this->updateUsername();
@@ -179,8 +184,12 @@ class UserController {
         $responseObj = new Response();
         // Get the data payload
         $requestData = Utils::getJsonData($responseObj);
-        $requestData->id = $this->$this->userId;
+        $requestData->id = $this->userId;
         try {
+            $result = $this->userModel->find($this->userId);
+            if (!$result["rows_affected"]) {
+                $responseObj->errorResponse(["User Record not found"], 404);
+            }
             $userData = $this->userModel->validateUser($requestData, true);
         } catch (\Exception $e) {
             $responseObj->errorResponse(["Unable to Update User", $e->getMessage()], 422);
@@ -191,7 +200,7 @@ class UserController {
         $returnData = [];
         $returnData['rows_affected'] = $rowsAffected;
         $returnData['users'] = [$userData];
-        $responseObj->successResponse(["User Created"], 201, $returnData);
+        $responseObj->successResponse(["User Updated"], 201, $returnData);
     }
 
     private function deleteUser()

@@ -6,13 +6,8 @@ use Src\Model\SessionModel;
 use Src\System\SessionException;
 use Src\System\Utils;
 
-class SessionController {
-
-    /**
-     * POST /session = create a new session (Log In)
-     * DELETE /session/1 = delete an existing session (Log Out)
-     * PATCH /session/1 = Refresh Session/Token
-     */
+class SessionController
+{
 
     private $db;
     private $requestMethod;
@@ -116,7 +111,6 @@ class SessionController {
 
     private function refreshSession()
     {
-        echo "REFRESH SESSION\n";
         $responseObj = new Response();
         if (!array_key_exists('HTTP_AUTHORIZATION', $_SERVER)) {
             $responseObj->errorResponse(["Access Token not Provided"], 401);
@@ -127,7 +121,7 @@ class SessionController {
         if (!($requestData->refresh_token ?? false)) {
             $responseObj->errorResponse(["Refresh Token not Provided"], 400);
         }
-        $returnData = $this->sessionModel->findSession($this->sessionId, $accessToken, $requestData->refresh_token);
+        $returnData = $this->sessionModel->findRefreshSession($this->sessionId, $accessToken, $requestData->refresh_token);
         if ($returnData->rows_affected === 0) {
             $responseObj->errorResponse(["Access Token or Refresh Token does not match the Session Id"], 500);
         }
