@@ -18,6 +18,8 @@ class SessionController {
     private $requestMethod;
     private $sessionId;
     private $uri;
+    private $access_seconds;
+    private $refresh_seconds;
 
     private $sessionModel;
 
@@ -27,6 +29,8 @@ class SessionController {
         $this->requestMethod = $requestMethod;
         $this->uri = $uri;
         $this->sessionId = $sessionId;
+        $this->access_seconds = 60 * 20;
+        $this->refresh_seconds = 60 * 60 * 24 * 14;
 
         $this->sessionModel = new SessionModel($db);
     }
@@ -68,7 +72,7 @@ class SessionController {
         $requestData = Utils::getJsonData($responseObj);
 
         // Attempt to fetch the user details
-        $userData = $this->sessionModel->find($requestData->username);
+        $userData = $this->sessionModel->findUser($requestData->username);
         if ((int) $userData->rows_affected === 0) {
             $responseObj->errorResponse(["Username or Password is incorrect"], 401);
         }
@@ -96,20 +100,16 @@ class SessionController {
         }
 
         // Generate the access-token and refresh_tokens
-        //  - using 24 random bytes to generate a token then encode this as base64
-        //  - suffix with unix time stamp to guarantee uniqueness (stale tokens)
-        $access_token = base64_encode(bin2hex(openssl_random_pseudo_bytes(24)).time());
-        $refresh_token = base64_encode(bin2hex(openssl_random_pseudo_bytes(24)).time());
-        $access_token_expiry_seconds = 60 * 20;
-        $refresh_token_expiry_seconds = 60 * 60 * 24 * 14;
+        $access_token = Utils::generateToken();
+        $refresh_token = Utils::generateToken();
 
         // Create the Login Session
         $returnData = $this->sessionModel->createSession(
             $user_id,
             $access_token,
-            $access_token_expiry_seconds,
+            $this->access_seconds,
             $refresh_token,
-            $refresh_token_expiry_seconds
+            $this->refresh_seconds
         );
         $responseObj->successResponse(["Login Successful"], 201, $returnData);
     }
@@ -117,6 +117,59 @@ class SessionController {
     private function refreshSession()
     {
         echo "REFRESH SESSION\n";
+        $responseObj = new Response();
+        if (!array_key_exists('HTTP_AUTHORIZATION', $_SERVER)) {
+            $responseObj->errorResponse(["Access Token not Provided"], 401);
+        }
+        $accessToken = $_SERVER['HTTP_AUTHORIZATION'];
+        $requestData = Utils::getJsonData($responseObj);
+        // Check if the refresh-token was provided
+        if (!($requestData->refresh_token ?? false)) {
+            $responseObj->errorResponse(["Refresh Token not Provided"], 400);
+        }
+        $returnData = $this->sessionModel->findSession($this->sessionId, $accessToken, $requestData->refresh_token);
+        if ($returnData->rows_affected === 0) {
+            $responseObj->errorResponse(["Access Token or Refresh Token does not match the Session Id"], 500);
+        }
+        // Extract data in to variables
+        $sessionId = (int) $returnData->session->session_id;
+        $userId = (int) $returnData->session->user_id;
+        $refreshToken = $returnData->session->refresh_token;
+        $isActive = (bool) $returnData->session->is_active;
+        $loginAttempts = (int) $returnData->session->login_attempts;
+        $accessTokenExpiry = $returnData->session->access_token_expiry;
+        $refreshTokenExpiry = $returnData->session->refresh_token_expiry;
+
+        // Check if the user is still active
+        if (!$isActive) {
+            $responseObj->errorResponse(["User account is not active"], 401);
+        }
+        // Check if the user's account is locked
+        if ($loginAttempts >= 3) {
+            $responseObj->errorResponse(["User account is locked"], 401);
+        }
+        // Check if the refresh-token is still active
+        if (strtotime($accessTokenExpiry) < time()) {
+            $responseObj->errorResponse(["Refresh Token has expired", "Please log in again"], 401);
+        }
+
+        // Generate the access-token and refresh_tokens
+        $newAccessToken = Utils::generateToken();
+        $newRefreshToken = Utils::generateToken();
+
+        // Create the Login Session
+        $returnData = $this->sessionModel->updateSession(
+            $sessionId,
+            $userId,
+            $accessToken,
+            $newAccessToken,
+            $this->access_seconds,
+            $refreshToken,
+            $newRefreshToken,
+            $this->refresh_seconds
+        );
+
+        $responseObj->successResponse(["Token Successfully Refreshed"], 200, $returnData);
 
     }
 
@@ -128,6 +181,7 @@ class SessionController {
         }
         $accessToken = $_SERVER['HTTP_AUTHORIZATION'];
         $returnData = $this->sessionModel->deleteSession($this->sessionId, $accessToken);
+
         if ($returnData->rows_affected === 0) {
             $responseObj->errorResponse(["Failed to logout:", "Invalid Token Provided"], 400);
         }

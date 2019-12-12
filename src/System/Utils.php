@@ -17,4 +17,10 @@ abstract class Utils {
         }
         return $data;
     }
+
+    public static function generateToken() {
+        //  - using 24 random bytes to generate a token then encode this as base64
+        //  - suffix with unix time stamp to guarantee uniqueness (stale tokens)
+        return base64_encode(bin2hex(openssl_random_pseudo_bytes(24)).time());
+    }
 }

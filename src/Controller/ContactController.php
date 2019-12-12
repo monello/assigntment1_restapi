@@ -26,7 +26,6 @@ class ContactController {
         $this->contactModel = new ContactModel($db);
     }
 
-//    // TODO Add some setters to help validate the class properties when setting them in the constructor
 
     public function processRequest()
     {
