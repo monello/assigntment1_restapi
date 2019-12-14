@@ -5,6 +5,7 @@ use Src\Controller\SessionController;
 use Src\Controller\UserController;
 use Src\Controller\UserContactController;
 use Src\Controller\ContactController;
+use Src\Controller\ListController;
 
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
@@ -47,9 +48,13 @@ switch (true) {
         $contactId = $matches[1][0];
         $controller = new ContactController($dbConnection, $requestMethod, $uri, $contactId);
         break;
+    case preg_match_all('/^\/list\/([a-z]+)\/?$/', $uri, $matches):
+        $list = $matches[1][0];
+        $controller = new ListController($dbConnection, $requestMethod, $uri, $list);
+        break;
     default:
         $response = new Response();
-        $response->errorResponse(["Endpoint not found"], 405);
+        $response->errorResponse(["Endpoint not found - foobar"], 405);
 }
 
 $controller->processRequest();

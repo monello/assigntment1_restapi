@@ -31,7 +31,7 @@ class UserController
         switch ($this->requestMethod) {
             case 'GET':
                 if ($this->userId) {
-                    $auth->authenticate();
+//                    $auth->authenticate();
                     $this->getUser();
                 }
                 else {
