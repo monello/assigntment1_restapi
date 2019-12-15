@@ -15,7 +15,7 @@ class listModel {
         $this->db = $db;
     }
 
-    public function fetch($list)
+    public function fetch($list, $indentifier)
     {
         $sql = "SELECT * FROM $list";
         try {
@@ -27,7 +27,7 @@ class listModel {
             // prep the return data
             $returnData = [];
             $returnData['rows_affected'] = $rowCount;
-            $returnData['countries'] = $result;
+            $returnData[$indentifier] = $result;
             return $returnData;
         } catch (\PDOException $e) {
             error_log("Database Error: " . $e->getMessage(), 0);

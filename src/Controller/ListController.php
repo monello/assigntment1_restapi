@@ -36,7 +36,7 @@ class ListController
     {
         $responseObj = new Response();
         $list = $this->whiteList();
-        $result = $this->listModel->fetch($list);
+        $result = $this->listModel->fetch($list, $this->list);
         if (!$result["rows_affected"]) {
             $responseObj->errorResponse(["No data in this list table"], 404);
         }
