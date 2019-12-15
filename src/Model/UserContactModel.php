@@ -64,10 +64,13 @@ class UserContactModel
 
     public function findOne($id)
     {
-        $sql = '
-            SELECT * FROM user_contact_number
-            WHERE id = :id
-        ';
+        $sql = "
+            SELECT uc.id, uc.user_id, uc.type, uc.country_code, uc.number, CONCAT(uc.country_code, ' ' , uc.number) phone_number, uc.is_primary,
+                nt.label number_type
+            FROM user_contact_number uc
+            LEFT JOIN lst_contact_number_types nt ON uc.type = nt.id
+            WHERE uc.id = :id
+        ";
         $query = $this->db->prepare($sql);
         $query->bindParam(':id', $id, \PDO::PARAM_INT);
         $query->execute();
@@ -80,10 +83,13 @@ class UserContactModel
 
     public function findAll($user_id)
     {
-        $sql = '
-            SELECT * FROM user_contact_number
-            WHERE user_id = :user_id
-        ';
+        $sql = "
+            SELECT uc.id, uc.user_id, uc.type, uc.country_code, uc.number, CONCAT(uc.country_code, ' ' , uc.number) phone_number, uc.is_primary,
+                nt.label number_type
+            FROM user_contact_number uc
+            LEFT JOIN lst_contact_number_types nt ON uc.type = nt.id
+            WHERE uc.user_id = :user_id
+        ";
         $query = $this->db->prepare($sql);
         $query->bindParam(':user_id', $user_id, \PDO::PARAM_INT);
         $query->execute();

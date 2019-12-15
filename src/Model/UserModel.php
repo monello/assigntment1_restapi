@@ -18,10 +18,11 @@ class UserModel
     {
         $sql = "
             SELECT 
-                id, username, email, first_name, last_name, date_of_birth, gender, country_id, is_active, login_attempts
-            FROM
-                user
-            WHERE id = :id;
+                u.id user_id, u.username, u.email, u.first_name, u.last_name, CONCAT(u.first_name, ' ', u.last_name) full_name, u.date_of_birth, u.gender, u.country_id, u.is_active, u.login_attempts,
+                c.label country
+            FROM user u
+            LEFT JOIN lst_countries c ON u.country_id = c.id
+            WHERE u.id = :id;
         ";
         try {
             $query = $this->db->prepare($sql);

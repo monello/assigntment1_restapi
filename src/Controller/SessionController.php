@@ -24,7 +24,7 @@ class SessionController
         $this->requestMethod = $requestMethod;
         $this->uri = $uri;
         $this->sessionId = $sessionId;
-        $this->access_seconds = 60 * 20;
+        $this->access_seconds = 60 * 60;
         $this->refresh_seconds = 60 * 60 * 24 * 14;
 
         $this->sessionModel = new SessionModel($db);
