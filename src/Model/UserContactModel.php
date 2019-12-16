@@ -62,6 +62,60 @@ class UserContactModel
         ];
     }
 
+    public function update($user_contact_id, &$userContactsData)
+    {
+        $responseObj = new Response();
+        $rowTotalCount = 0;
+        try {
+            $sql_number = 'UPDATE user_contact_number
+                SET country_code = :country_code,
+                    number = :number,
+                    type = :type,
+                    is_primary = :is_primary
+                WHERE id = :id
+            ';
+            $this->db->beginTransaction();
+            foreach ($userContactsData as $contact_number) {
+                try {
+                    $query = $this->db->prepare($sql_number);
+                    $query->bindParam(':country_code', $contact_number->country_code, \PDO::PARAM_STR);
+                    $query->bindParam(':number', $contact_number->number, \PDO::PARAM_STR);
+                    $query->bindParam(':type', $contact_number->type, \PDO::PARAM_INT);
+                    $query->bindParam(':is_primary', $contact_number->is_primary, \PDO::PARAM_BOOL);
+                    $query->bindParam(':id', $user_contact_id, \PDO::PARAM_INT);
+                    $query->execute();
+                    // grab the contact new id
+                    $rowCount = $query->rowCount();
+                    if(!$rowCount) {
+                        error_log("Unable to insert User Contact number");
+                        throw new UserContactException("Unable to insert User Contact number");
+                    }
+                    $rowTotalCount += $rowCount;
+                    $contact_number->id = $this->db->lastInsertId();
+                } catch (\PDOException $e) {
+                    error_log($e->getMessage());
+                    throw new UserContactException("SQL Error. " . $e->getMessage());
+                }
+            }
+            $this->db->commit();
+        } catch (\PDOException $e) {
+            $this->db->rollBack();
+            error_log("Database Update-User-Contact Query Error: " . $e->getMessage(), 0);
+            $responseObj->errorResponse(["Update-User-Contact: ", "Update statement invalid"], 500);
+        } catch (UserContactException $e) {
+            $this->db->rollBack();
+            error_log("Database Update-User-Contact Query Error: " . $e->getMessage(), 0);
+            $responseObj->errorResponse(["Database Query Error: ", "Update statement invalid"], 500);
+        }
+        if($rowTotalCount === 0) {
+            $responseObj->errorResponse(["There was an error creating the user contact numbers - please try again"], 500);
+        }
+        return [
+            'rows_affected' => $rowTotalCount,
+            'contact_numbers' => $userContactsData
+        ];
+    }
+
     public function findOne($id)
     {
         $sql = "
@@ -167,9 +221,7 @@ class UserContactModel
             }
             $cleanNumbers[] = $contact_number;
         }
-        if (!$primaryNumberCount) {
-            throw new UserContactException("One Contact Number must be set to the Primary number");
-        } elseif ($primaryNumberCount > 1) {
+        if ($primaryNumberCount > 1) {
             throw new UserContactException("Only one Contact Number must be set to the Primary number");
         } else {
             return $cleanNumbers;

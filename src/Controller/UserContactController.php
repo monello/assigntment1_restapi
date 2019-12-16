@@ -139,17 +139,11 @@ class UserContactController
             $responseObj->errorResponse(["Unable to create User Contact Number", $e->getMessage()], 400);
         }
         try {
-            $this->db->beginTransaction();
-            // Delete the existing Contact Number
-            $this->userContactModel->deleteOne($this->contactId);
-            // Insert the updated Contact Number
-            $returnData = $this->userContactModel->insert($this->userId, $userContactData);
-            $this->db->commit();
+            // Update the updated Contact Number
+            $returnData = $this->userContactModel->update($this->contactId, $userContactData);
         } catch (\PDOException $e) {
-            $this->db->rollBack();
             $responseObj->errorResponse(["Unable to Delete User Contact", $e->getMessage()], 500);
         } catch (UserContactException $e) {
-            $this->db->rollBack();
             $responseObj->errorResponse([$e->getMessage()], 404);
         }
         $responseObj->successResponse(["User Contact Number Updated"], 201, $returnData);
